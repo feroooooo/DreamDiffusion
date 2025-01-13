@@ -75,6 +75,7 @@ def count_params(model, verbose=False):
     return total_params
 
 
+# 使用target类的引用和param创建实例对象
 def instantiate_from_config(config):
     if not "target" in config:
         if config == '__is_first_stage__':
@@ -85,6 +86,7 @@ def instantiate_from_config(config):
     return get_obj_from_str(config["target"])(**config.get("params", dict()))
 
 
+# 返回类的引用，module模块名，cls类名
 def get_obj_from_str(string, reload=False):
     module, cls = string.rsplit(".", 1)
     if reload:

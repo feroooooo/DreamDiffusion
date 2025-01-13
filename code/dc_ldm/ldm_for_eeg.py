@@ -6,6 +6,7 @@ from omegaconf import OmegaConf
 import torch.nn as nn
 import os
 from dc_ldm.models.diffusion.plms import PLMSSampler
+from dc_ldm.models.diffusion.ddpm import LatentDiffusion
 from einops import rearrange, repeat
 from torchvision.utils import make_grid
 from torch.utils.data import DataLoader
@@ -95,6 +96,20 @@ class eLDM:
     def __init__(self, metafile, num_voxels, device=torch.device('cpu'),
                  pretrain_root='../pretrains/',
                  logger=None, ddim_steps=250, global_pool=True, use_time_cond=False, clip_tune = True, cls_tune = False):
+        """init the LDM
+
+        Args:
+            metafile (dict): Information of EEG Encoder
+            num_voxels (int): EEG samples of one trail
+            device (device, optional): Device for model. Defaults to torch.device('cpu').
+            pretrain_root (str, optional): Directory which contains pretrained model. Defaults to '../pretrains/'.
+            logger (_type_, optional): Logger seems always be None. Defaults to None.
+            ddim_steps (int, optional): Number of steps used in the sampling process, but seems not work in this Class. Defaults to 250.
+            global_pool (bool, optional): Global pool for EEG Encoder. Defaults to True.
+            use_time_cond (bool, optional): _description_. Defaults to False.
+            clip_tune (bool, optional): _description_. Defaults to True.
+            cls_tune (bool, optional): _description_. Defaults to False.
+        """
         # self.ckp_path = os.path.join(pretrain_root, 'model.ckpt')
         self.ckp_path = os.path.join(pretrain_root, 'models/v1-5-pruned.ckpt')
         self.config_path = os.path.join(pretrain_root, 'models/config15.yaml') 
@@ -104,7 +119,8 @@ class eLDM:
 
         self.cond_dim = config.model.params.unet_config.params.context_dim
 
-        model = instantiate_from_config(config.model)
+        # 根据config15.yaml中的target和params创建model对象（dc_ldm.models.diffusion.ddpm.LatentDiffusion）
+        model:LatentDiffusion = instantiate_from_config(config.model)
         pl_sd = torch.load(self.ckp_path, map_location="cpu")['state_dict']
        
         m, u = model.load_state_dict(pl_sd, strict=False)

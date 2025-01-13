@@ -8,6 +8,7 @@ from config import *
 import wandb
 import datetime
 import argparse
+from pprint import pprint
 
 
 from config import Config_Generative_Model
@@ -51,7 +52,7 @@ class random_crop:
 def get_args_parser():
     parser = argparse.ArgumentParser('Double Conditioning LDM Finetuning', add_help=False)
     # project parameters
-    parser.add_argument('--root', type=str, default='../dreamdiffusion/')
+    parser.add_argument('--root', type=str, default='../DreamDiffusion/')
     parser.add_argument('--dataset', type=str, default='GOD')
     parser.add_argument('--model_path', type=str)
 
@@ -61,16 +62,20 @@ def get_args_parser():
 if __name__ == '__main__':
     args = get_args_parser()
     args = args.parse_args()
+    args.model_path = "./pretrains/models/dreamdiffusion_finetune_checkpoint.pth"
     root = args.root
-    target = args.dataset
+    # target = args.dataset
 
     sd = torch.load(args.model_path, map_location='cpu')
-    config = sd['config']
+    config:Config_Generative_Model = sd['config']
     # update paths
+    config.eeg_signals_path = './datasets/eeg_5_95_std.pth'
     config.root_path = root
-    config.pretrain_mbm_path = '../dreamdiffusion/results/eeg_pretrain/19-02-2023-08-48-17/checkpoints/checkpoint.pth'
-    config.pretrain_gm_path = '../dreamdiffusion/pretrains/'
-    print(config.__dict__)
+    # EEG 预训练Encoder权重
+    # config.pretrain_mbm_path = '../dreamdiffusion/results/eeg_pretrain/19-02-2023-08-48-17/checkpoints/checkpoint.pth'
+    # SDv1.5 预训练权重（gm：generative model）
+    config.pretrain_gm_path = '../DreamDiffusion/pretrains/'
+    pprint(config.__dict__)
 
     output_path = os.path.join(config.root_path, 'results', 'eval',  
                     '%s'%(datetime.datetime.now().strftime("%d-%m-%Y-%H-%M-%S")))
@@ -91,15 +96,18 @@ if __name__ == '__main__':
     ])
 
     
-    splits_path = "../dreamdiffusion/datasets/block_splits_by_image_single.pth"
+    splits_path = "./datasets/block_splits_by_image_single.pth"
+    # train:669, test: 164
     dataset_train, dataset_test = create_EEG_dataset(eeg_signals_path = config.eeg_signals_path, splits_path = splits_path, 
                 image_transform=[img_transform_train, img_transform_test], subject = 4)
     num_voxels = dataset_test.dataset.data_len
 
     # num_voxels = dataset_test.num_voxels
     print(len(dataset_test))
-    # prepare pretrained mae 
-    pretrain_mbm_metafile = torch.load(config.pretrain_mbm_path, map_location='cpu')
+    # EEG 预训练Encoder
+    # prepare pretrained mae
+    # pretrain_mbm_metafile = torch.load(config.pretrain_mbm_path, map_location='cpu')
+    pretrain_mbm_metafile = None
     # create generateive model
     generative_model = eLDM(pretrain_mbm_metafile, num_voxels,
                 device=device, pretrain_root=config.pretrain_gm_path, logger=config.logger,
@@ -107,6 +115,7 @@ if __name__ == '__main__':
     # m, u = model.load_state_dict(pl_sd, strict=False)
     generative_model.model.load_state_dict(sd['model_state_dict'], strict=False)
     print('load ldm successfully')
+    # 随机数序列种子
     state = sd['state']
     os.makedirs(output_path, exist_ok=True)
     grid, _ = generative_model.generate(dataset_train, config.num_samples, 
